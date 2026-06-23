@@ -140,21 +140,29 @@ function formatDateLabel(isoDate) {
 
 function loadState() {
   const saved = localStorage.getItem(STORAGE_KEY);
-  if (!saved) return hydrateState(structuredClone(starterState));
+  if (!saved) return hydrateState(createStarterState());
 
   try {
     const parsed = JSON.parse(saved);
     return hydrateState({
       week: { ...starterState.week, ...parsed.week },
       weeks: parsed.weeks && typeof parsed.weeks === "object" ? parsed.weeks : {},
-      players: Array.isArray(parsed.players) ? parsed.players : starterState.players,
+      players: Array.isArray(parsed.players) ? parsed.players : createStarterState().players,
     });
   } catch {
-    return hydrateState(structuredClone(starterState));
+    return hydrateState(createStarterState());
   }
 }
 
+function createStarterState() {
+  if (typeof structuredClone === "function") return structuredClone(starterState);
+  return JSON.parse(JSON.stringify(starterState));
+}
+
 function hydrateState(nextState) {
+  nextState = nextState && typeof nextState === "object" ? nextState : createStarterState();
+  nextState.players = Array.isArray(nextState.players) ? nextState.players : [];
+
   const weekDate = normalizeWednesdayIso(nextState.week?.date);
   nextState.week = { ...starterState.week, ...nextState.week, date: weekDate };
   nextState.weeks = nextState.weeks && typeof nextState.weeks === "object" ? nextState.weeks : {};
@@ -172,6 +180,7 @@ function hydrateState(nextState) {
   }
 
   for (const week of Object.values(nextState.weeks)) {
+    week.responses = week.responses && typeof week.responses === "object" ? week.responses : {};
     if (!week.location || week.location === "Community center") {
       week.location = DEFAULT_LOCATION;
     }
@@ -366,7 +375,12 @@ function render() {
   if (players.length === 0) {
     const empty = document.createElement("div");
     empty.className = "empty-state";
-    empty.textContent = "No players match this view.";
+    empty.append(
+      document.createTextNode(
+        state.players.length === 0 ? "No players yet. Add your first player." : "No players match this view.",
+      ),
+      createEmptyAction(),
+    );
     elements.playerBoard.append(empty);
     return;
   }
@@ -466,7 +480,12 @@ function renderRoster() {
   if (players.length === 0) {
     const empty = document.createElement("div");
     empty.className = "empty-state";
-    empty.textContent = "No players match this roster search.";
+    empty.append(
+      document.createTextNode(
+        state.players.length === 0 ? "No players yet. Add your first player." : "No players match this roster search.",
+      ),
+      createEmptyAction(),
+    );
     elements.rosterList.append(empty);
     return;
   }
@@ -474,6 +493,32 @@ function renderRoster() {
   for (const player of players) {
     elements.rosterList.append(createRosterRow(player));
   }
+}
+
+function createEmptyAction() {
+  const wrap = document.createElement("div");
+  wrap.className = "empty-actions";
+
+  const addButton = document.createElement("button");
+  addButton.className = "primary-button";
+  addButton.type = "button";
+  addButton.textContent = "Add Player";
+  addButton.addEventListener("click", () => openPlayerDialog());
+
+  const resetButton = document.createElement("button");
+  resetButton.className = "secondary-button";
+  resetButton.type = "button";
+  resetButton.textContent = "Load Sample Roster";
+  resetButton.addEventListener("click", resetSampleRoster);
+
+  wrap.append(addButton, resetButton);
+  return wrap;
+}
+
+function resetSampleRoster() {
+  state = hydrateState(createStarterState());
+  saveState();
+  render();
 }
 
 function createRosterRow(player) {
@@ -614,7 +659,10 @@ function upsertPlayer() {
     ? state.players.map((player) => (player.id === id ? nextPlayer : player))
     : [...state.players, nextPlayer];
 
-  for (const [isoDate, week] of Object.entries(state.weeks)) {
+  selectedWeek().responses[id] = nextPlayer.response;
+
+  for (const week of Object.values(state.weeks)) {
+    week.responses = week.responses && typeof week.responses === "object" ? week.responses : {};
     if (!week.responses[id]) {
       week.responses[id] = nextPlayer.status === "active" ? "maybe" : "out";
     }

@@ -548,6 +548,14 @@ textarea:focus {
   color: var(--muted);
 }
 
+.empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 18px;
+}
+
 .roster-header {
   justify-content: space-between;
   gap: 12px;
