@@ -298,6 +298,12 @@ textarea:focus {
   color: #8c392c;
 }
 
+.week-roster-empty {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
 .toolbar-actions {
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -523,6 +529,13 @@ textarea:focus {
   line-height: 1.35;
 }
 
+.week-actions,
+.roster-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .tags {
   display: flex;
   flex-wrap: wrap;
@@ -580,7 +593,7 @@ textarea:focus {
 
 .roster-player-main {
   display: grid;
-  grid-template-columns: minmax(150px, 1.2fr) minmax(120px, 1fr) minmax(90px, 0.7fr) minmax(90px, 0.7fr);
+  grid-template-columns: minmax(150px, 1.2fr) minmax(120px, 1fr) minmax(90px, 0.7fr) minmax(90px, 0.7fr) minmax(100px, 0.8fr);
   gap: 12px;
   align-items: center;
   min-width: 0;
