@@ -186,6 +186,7 @@ function createStarterState() {
 function hydrateState(nextState) {
   nextState = nextState && typeof nextState === "object" ? nextState : createStarterState();
   nextState.players = Array.isArray(nextState.players) ? nextState.players : [];
+  nextState.updatedAt = nextState.updatedAt || new Date(0).toISOString();
 
   const weekDate = normalizeWednesdayIso(nextState.week && nextState.week.date);
   nextState.week = { ...starterState.week, ...nextState.week, date: weekDate };
@@ -223,8 +224,18 @@ function hydrateState(nextState) {
 }
 
 function saveState() {
+  state.updatedAt = new Date().toISOString();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   queueCloudSave();
+}
+
+function saveLocalStateOnly() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function stateTime(value) {
+  const time = new Date(value || 0).getTime();
+  return Number.isNaN(time) ? 0 : time;
 }
 
 function setSyncStatus(message, tone = "neutral") {
@@ -254,7 +265,7 @@ async function loadCloudState() {
   setSyncStatus("Syncing...");
 
   try {
-    const response = await fetch(cloudUrl(`?key=eq.${encodeURIComponent(CLOUD_RECORD_KEY)}&select=data`), {
+    const response = await fetch(cloudUrl(`?key=eq.${encodeURIComponent(CLOUD_RECORD_KEY)}&select=data,updated_at`), {
       headers: cloudHeaders(),
     });
 
@@ -262,13 +273,25 @@ async function loadCloudState() {
 
     const rows = await response.json();
     if (rows[0] && rows[0].data) {
-      state = hydrateState(rows[0].data);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      const cloudState = hydrateState(rows[0].data);
+      const cloudUpdatedAt = cloudState.updatedAt || rows[0].updated_at;
+
+      if (stateTime(state.updatedAt) > stateTime(cloudUpdatedAt)) {
+        await saveCloudState();
+        setSyncStatus("Synced");
+        return;
+      }
+
+      state = cloudState;
+      state.updatedAt = cloudUpdatedAt || state.updatedAt;
+      saveLocalStateOnly();
       setSyncStatus("Synced");
       render();
       return;
     }
 
+    state.updatedAt = new Date().toISOString();
+    saveLocalStateOnly();
     await saveCloudState();
     setSyncStatus("Shared roster created");
   } catch (error) {
@@ -299,7 +322,7 @@ async function saveCloudState() {
       body: JSON.stringify({
         key: CLOUD_RECORD_KEY,
         data: state,
-        updated_at: new Date().toISOString(),
+        updated_at: state.updatedAt || new Date().toISOString(),
       }),
     });
 
@@ -412,7 +435,12 @@ function render() {
   const maybe = state.players.filter(
     (player) => isPlayerInWeek(player) && player.status === "active" && getPlayerResponse(player) === "maybe",
   ).length;
-  const active = state.players.filter((player) => isPlayerInWeek(player) && player.status === "active").length;
+  const active = state.players.filter(
+    (player) =>
+      isPlayerInWeek(player) &&
+      player.status === "active" &&
+      ["confirmed", "maybe"].includes(getPlayerResponse(player)),
+  ).length;
 
   elements.confirmedCount.textContent = confirmed;
   elements.maybeCount.textContent = maybe;
