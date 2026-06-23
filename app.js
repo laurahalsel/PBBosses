@@ -99,7 +99,10 @@ const elements = {
   existingPlayerSelect: document.querySelector("#existingPlayerSelect"),
   existingPlayerNote: document.querySelector("#existingPlayerNote"),
   saveExistingPlayerButton: document.querySelector("#saveExistingPlayerButton"),
+  toast: document.querySelector("#toast"),
 };
+
+let toastTimer;
 
 function toIsoDate(date) {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
@@ -241,6 +244,15 @@ function stateTime(value) {
 function setSyncStatus(message, tone = "neutral") {
   elements.syncStatus.textContent = message;
   elements.syncStatus.dataset.tone = tone;
+}
+
+function showToast(message) {
+  clearTimeout(toastTimer);
+  elements.toast.textContent = message;
+  elements.toast.classList.add("is-visible");
+  toastTimer = setTimeout(() => {
+    elements.toast.classList.remove("is-visible");
+  }, 2200);
 }
 
 function cloudHeaders() {
@@ -729,6 +741,7 @@ function updateResponse(id, response) {
   selectedWeek().responses[id] = response;
   saveState();
   render();
+  showToast("Weekly status updated");
 }
 
 function removeFromWeek(id) {
@@ -738,6 +751,7 @@ function removeFromWeek(id) {
   }
   saveState();
   render();
+  showToast("Removed from this week");
 }
 
 function addToWeek(id) {
@@ -752,6 +766,7 @@ function addToWeekDate(id, isoDate) {
   }
   saveState();
   render();
+  showToast("Added to week");
 }
 
 function openExistingPlayerDialog() {
@@ -808,6 +823,7 @@ function selectWeek(isoDate) {
   };
   saveState();
   render();
+  showToast(`Showing ${formatDateLabel(isoDate)}`);
 }
 
 function openPlayerDialog(id) {
@@ -888,6 +904,7 @@ function upsertPlayer() {
 
   saveState();
   render();
+  showToast(current ? "Player updated" : "Player added");
 }
 
 function deleteCurrentPlayer() {
@@ -908,6 +925,7 @@ function deleteCurrentPlayer() {
   saveState();
   closeDialog(elements.playerDialog);
   render();
+  showToast("Player deleted from roster");
 }
 
 function exportSummary() {
@@ -957,6 +975,7 @@ function startNewWeek() {
   state.week = { date: nextDate, location: week.location, notes: week.notes };
   saveState();
   render();
+  showToast("Week reset");
 }
 
 elements.weekDate.addEventListener("change", (event) => {
@@ -964,18 +983,21 @@ elements.weekDate.addEventListener("change", (event) => {
   ensureWeek(state.week.date);
   saveState();
   render();
+  showToast("Week changed");
 });
 
 elements.weekLocation.addEventListener("input", (event) => {
   selectedWeek().location = event.target.value;
   state.week.location = event.target.value;
   saveState();
+  showToast("Location saved");
 });
 
 elements.weekNotes.addEventListener("input", (event) => {
   selectedWeek().notes = event.target.value;
   state.week.notes = event.target.value;
   saveState();
+  showToast("Week notes saved");
 });
 
 elements.playerContact.addEventListener("input", (event) => {

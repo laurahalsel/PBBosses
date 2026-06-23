@@ -646,6 +646,13 @@ dialog::backdrop {
   padding: 20px;
 }
 
+.dialog-note {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
 .field-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -658,6 +665,33 @@ dialog::backdrop {
   gap: 10px;
   margin: 18px 0 0;
   padding: 0;
+}
+
+.toast {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 10;
+  max-width: min(340px, calc(100vw - 28px));
+  padding: 12px 14px;
+  border: 1px solid rgba(31, 111, 120, 0.28);
+  border-radius: 8px;
+  background: #1f2528;
+  color: #fff;
+  box-shadow: 0 18px 42px rgba(31, 37, 40, 0.24);
+  font-size: 0.9rem;
+  font-weight: 800;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(12px);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 @media (max-width: 860px) {
@@ -831,5 +865,12 @@ dialog::backdrop {
 
   .dialog-actions span {
     display: none;
+  }
+
+  .toast {
+    right: 10px;
+    bottom: 10px;
+    left: 10px;
+    max-width: none;
   }
 }
