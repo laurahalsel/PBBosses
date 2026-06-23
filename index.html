@@ -73,6 +73,7 @@
               <input id="searchInput" type="search" placeholder="Search players" />
             </div>
             <button class="secondary-button" id="exportButton" type="button">Export</button>
+            <button class="secondary-button" id="addExistingButton" type="button">Add Existing</button>
             <button class="primary-button" id="addPlayerButton" type="button">Add Player</button>
           </div>
         </header>
@@ -115,7 +116,7 @@
             <p class="eyebrow">Roster</p>
             <h2 id="dialogTitle">Add Player</h2>
           </div>
-          <button class="icon-button" value="cancel" type="submit" aria-label="Close" title="Close">
+          <button class="icon-button" value="cancel" type="submit" formnovalidate aria-label="Close" title="Close">
             <span aria-hidden="true">×</span>
           </button>
         </div>
@@ -161,8 +162,39 @@
         <menu class="dialog-actions">
           <button class="danger-button" id="deletePlayerButton" type="button">Delete</button>
           <span></span>
-          <button class="secondary-button" value="cancel" type="submit">Cancel</button>
+          <button class="secondary-button" value="cancel" type="submit" formnovalidate>Cancel</button>
           <button class="primary-button" id="savePlayerButton" value="default" type="submit">Save</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="existingPlayerDialog">
+      <form method="dialog" class="dialog-form" id="existingPlayerForm">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">This week</p>
+            <h2>Add Existing Player</h2>
+          </div>
+          <button class="icon-button" value="cancel" type="submit" formnovalidate aria-label="Close" title="Close">
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+
+        <label class="field">
+          <span>Wednesday</span>
+          <select id="existingWeekSelect"></select>
+        </label>
+        <label class="field">
+          <span>Roster Player</span>
+          <select id="existingPlayerSelect"></select>
+        </label>
+        <p class="dialog-note" id="existingPlayerNote"></p>
+
+        <menu class="dialog-actions">
+          <span></span>
+          <span></span>
+          <button class="secondary-button" value="cancel" type="submit" formnovalidate>Cancel</button>
+          <button class="primary-button" id="saveExistingPlayerButton" value="default" type="submit">Add to Week</button>
         </menu>
       </form>
     </dialog>

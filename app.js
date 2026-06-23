@@ -78,6 +78,7 @@ const elements = {
   searchInput: document.querySelector("#searchInput"),
   syncStatus: document.querySelector("#syncStatus"),
   exportButton: document.querySelector("#exportButton"),
+  addExistingButton: document.querySelector("#addExistingButton"),
   addPlayerButton: document.querySelector("#addPlayerButton"),
   rosterAddPlayerButton: document.querySelector("#rosterAddPlayerButton"),
   playerBoard: document.querySelector("#playerBoard"),
@@ -92,6 +93,12 @@ const elements = {
   playerStatus: document.querySelector("#playerStatus"),
   playerNotes: document.querySelector("#playerNotes"),
   deletePlayerButton: document.querySelector("#deletePlayerButton"),
+  existingPlayerDialog: document.querySelector("#existingPlayerDialog"),
+  existingPlayerForm: document.querySelector("#existingPlayerForm"),
+  existingWeekSelect: document.querySelector("#existingWeekSelect"),
+  existingPlayerSelect: document.querySelector("#existingPlayerSelect"),
+  existingPlayerNote: document.querySelector("#existingPlayerNote"),
+  saveExistingPlayerButton: document.querySelector("#saveExistingPlayerButton"),
 };
 
 function toIsoDate(date) {
@@ -322,6 +329,13 @@ function ensureWeek(isoDate) {
     if (!state.weeks[isoDate].responses[player.id]) {
       state.weeks[isoDate].responses[player.id] = player.status === "active" ? "maybe" : "out";
     }
+    if (
+      player.addedWeekDate &&
+      player.addedWeekDate !== isoDate &&
+      !state.weeks[isoDate].removedIds.includes(player.id)
+    ) {
+      state.weeks[isoDate].removedIds.push(player.id);
+    }
   }
 
   return state.weeks[isoDate];
@@ -339,6 +353,12 @@ function getPlayerResponse(player, isoDate = state.week.date) {
 function isPlayerInWeek(player, isoDate = state.week.date) {
   const week = ensureWeek(isoDate);
   return !week.removedIds.includes(player.id);
+}
+
+function playersAvailableForWeek(isoDate = state.week.date) {
+  return state.players
+    .filter((player) => !isPlayerInWeek(player, isoDate))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function initials(name) {
@@ -549,13 +569,19 @@ function createEmptyAction() {
   addButton.textContent = "Add Player";
   addButton.addEventListener("click", () => openPlayerDialog());
 
+  const existingButton = document.createElement("button");
+  existingButton.className = "secondary-button";
+  existingButton.type = "button";
+  existingButton.textContent = "Add Existing";
+  existingButton.addEventListener("click", openExistingPlayerDialog);
+
   const resetButton = document.createElement("button");
   resetButton.className = "secondary-button";
   resetButton.type = "button";
   resetButton.textContent = "Load Sample Roster";
   resetButton.addEventListener("click", resetSampleRoster);
 
-  wrap.append(addButton, resetButton);
+  wrap.append(existingButton, addButton, resetButton);
   return wrap;
 }
 
@@ -692,13 +718,62 @@ function removeFromWeek(id) {
 }
 
 function addToWeek(id) {
-  const week = selectedWeek();
+  addToWeekDate(id, state.week.date);
+}
+
+function addToWeekDate(id, isoDate) {
+  const week = ensureWeek(isoDate);
   week.removedIds = week.removedIds.filter((playerId) => playerId !== id);
   if (!week.responses[id]) {
     week.responses[id] = "maybe";
   }
   saveState();
   render();
+}
+
+function openExistingPlayerDialog() {
+  renderExistingWeekOptions();
+  renderExistingPlayerOptions(elements.existingWeekSelect.value);
+  openDialog(elements.existingPlayerDialog);
+}
+
+function renderExistingWeekOptions() {
+  elements.existingWeekSelect.innerHTML = "";
+
+  for (const isoDate of getWednesdayDates()) {
+    const option = document.createElement("option");
+    option.value = isoDate;
+    option.textContent = formatDateLabel(isoDate);
+    option.selected = isoDate === state.week.date;
+    elements.existingWeekSelect.append(option);
+  }
+}
+
+function renderExistingPlayerOptions(isoDate) {
+  const players = playersAvailableForWeek(isoDate);
+  elements.existingPlayerSelect.innerHTML = "";
+
+  if (players.length === 0) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "No removed roster players";
+    elements.existingPlayerSelect.append(option);
+    elements.existingPlayerSelect.disabled = true;
+    elements.saveExistingPlayerButton.disabled = true;
+    elements.existingPlayerNote.textContent = `Everyone in the roster is already included for ${formatDateLabel(isoDate)}.`;
+    return;
+  }
+
+  elements.existingPlayerSelect.disabled = false;
+  elements.saveExistingPlayerButton.disabled = false;
+  elements.existingPlayerNote.textContent = `Choose someone from the full roster to add back to ${formatDateLabel(isoDate)}.`;
+
+  for (const player of players) {
+    const option = document.createElement("option");
+    option.value = player.id;
+    option.textContent = player.name;
+    elements.existingPlayerSelect.append(option);
+  }
 }
 
 function selectWeek(isoDate) {
@@ -765,6 +840,7 @@ function upsertPlayer() {
     status: elements.playerStatus.value,
     notes: elements.playerNotes.value.trim(),
     response: current ? current.response : "maybe",
+    addedWeekDate: current ? current.addedWeekDate : state.week.date,
   };
 
   if (!nextPlayer.name) return;
@@ -773,13 +849,17 @@ function upsertPlayer() {
     ? state.players.map((player) => (player.id === id ? nextPlayer : player))
     : [...state.players, nextPlayer];
 
+  const isNewPlayer = !current;
   selectedWeek().responses[id] = nextPlayer.response;
 
   for (const week of Object.values(state.weeks)) {
     week.responses = week.responses && typeof week.responses === "object" ? week.responses : {};
-    week.removedIds = Array.isArray(week.removedIds) ? week.removedIds.filter((playerId) => playerId !== id) : [];
+    week.removedIds = Array.isArray(week.removedIds) ? week.removedIds : [];
     if (!week.responses[id]) {
       week.responses[id] = nextPlayer.status === "active" ? "maybe" : "out";
+    }
+    if (isNewPlayer && week !== selectedWeek() && !week.removedIds.includes(id)) {
+      week.removedIds.push(id);
     }
   }
 
@@ -879,7 +959,12 @@ elements.playerContact.addEventListener("input", (event) => {
   event.target.value = formatPhoneNumber(event.target.value);
 });
 
+elements.existingWeekSelect.addEventListener("change", (event) => {
+  renderExistingPlayerOptions(event.target.value);
+});
+
 elements.newWeekButton.addEventListener("click", startNewWeek);
+elements.addExistingButton.addEventListener("click", openExistingPlayerDialog);
 elements.addPlayerButton.addEventListener("click", () => openPlayerDialog());
 elements.rosterAddPlayerButton.addEventListener("click", () => openPlayerDialog());
 elements.deletePlayerButton.addEventListener("click", deleteCurrentPlayer);
@@ -911,6 +996,19 @@ elements.playerForm.addEventListener("submit", (event) => {
   event.preventDefault();
   upsertPlayer();
   closeDialog(elements.playerDialog);
+});
+
+elements.existingPlayerForm.addEventListener("submit", (event) => {
+  if (event.submitter && event.submitter.value === "cancel") return;
+  event.preventDefault();
+  const id = elements.existingPlayerSelect.value;
+  const isoDate = elements.existingWeekSelect.value;
+  if (!id) return;
+  addToWeekDate(id, isoDate);
+  if (isoDate !== state.week.date) {
+    selectWeek(isoDate);
+  }
+  closeDialog(elements.existingPlayerDialog);
 });
 
 try {
