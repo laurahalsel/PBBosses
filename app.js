@@ -22,7 +22,7 @@ const starterState = {
   weeks: {},
   players: [
     {
-      id: crypto.randomUUID(),
+      id: createId(),
       name: "Maya Chen",
       contact: "maya@example.com",
       level: "Advanced",
@@ -31,7 +31,7 @@ const starterState = {
       response: "confirmed",
     },
     {
-      id: crypto.randomUUID(),
+      id: createId(),
       name: "Elena Brooks",
       contact: "555-0148",
       level: "Intermediate",
@@ -40,7 +40,7 @@ const starterState = {
       response: "maybe",
     },
     {
-      id: crypto.randomUUID(),
+      id: createId(),
       name: "Priya Shah",
       contact: "priya@example.com",
       level: "Intermediate",
@@ -49,7 +49,7 @@ const starterState = {
       response: "confirmed",
     },
     {
-      id: crypto.randomUUID(),
+      id: createId(),
       name: "Nora Davis",
       contact: "555-0192",
       level: "Beginner",
@@ -122,7 +122,7 @@ function getWednesdayDates(count = 8) {
     dates.push(toIsoDate(date));
   }
 
-  if (state?.week?.date && !dates.includes(state.week.date)) {
+  if (state && state.week && state.week.date && !dates.includes(state.week.date)) {
     dates.unshift(state.week.date);
   }
 
@@ -136,6 +136,11 @@ function formatDateLabel(isoDate) {
     month: "numeric",
     day: "numeric",
   }).format(date);
+}
+
+function createId() {
+  if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+  return `player-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function loadState() {
@@ -163,7 +168,7 @@ function hydrateState(nextState) {
   nextState = nextState && typeof nextState === "object" ? nextState : createStarterState();
   nextState.players = Array.isArray(nextState.players) ? nextState.players : [];
 
-  const weekDate = normalizeWednesdayIso(nextState.week?.date);
+  const weekDate = normalizeWednesdayIso(nextState.week && nextState.week.date);
   nextState.week = { ...starterState.week, ...nextState.week, date: weekDate };
   nextState.weeks = nextState.weeks && typeof nextState.weeks === "object" ? nextState.weeks : {};
 
@@ -234,7 +239,7 @@ async function loadCloudState() {
     if (!response.ok) throw new Error("Could not load shared roster.");
 
     const rows = await response.json();
-    if (rows[0]?.data) {
+    if (rows[0] && rows[0].data) {
       state = hydrateState(rows[0].data);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       setSyncStatus("Synced");
@@ -316,7 +321,7 @@ function initials(name) {
     .trim()
     .split(/\s+/)
     .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
+    .map((part) => (part[0] ? part[0].toUpperCase() : ""))
     .join("");
 }
 
@@ -340,8 +345,10 @@ function filteredPlayers() {
     })
     .sort((a, b) => {
       const order = { confirmed: 0, maybe: 1, out: 2 };
+      const firstOrder = order[getPlayerResponse(a)] === undefined ? 3 : order[getPlayerResponse(a)];
+      const secondOrder = order[getPlayerResponse(b)] === undefined ? 3 : order[getPlayerResponse(b)];
       return (
-        (order[getPlayerResponse(a)] ?? 3) - (order[getPlayerResponse(b)] ?? 3) ||
+        firstOrder - secondOrder ||
         a.name.localeCompare(b.name)
       );
     });
@@ -626,22 +633,40 @@ function selectWeek(isoDate) {
 function openPlayerDialog(id) {
   const player = state.players.find((item) => item.id === id);
   elements.playerForm.reset();
-  elements.playerId.value = player?.id ?? "";
+  elements.playerId.value = player ? player.id : "";
   elements.dialogTitle.textContent = player ? "Edit Player" : "Add Player";
   elements.deletePlayerButton.hidden = !player;
 
-  elements.playerName.value = player?.name ?? "";
-  elements.playerContact.value = player?.contact ?? "";
-  elements.playerLevel.value = player?.level ?? "Intermediate";
-  elements.playerStatus.value = player?.status ?? "active";
-  elements.playerNotes.value = player?.notes ?? "";
+  elements.playerName.value = player ? player.name : "";
+  elements.playerContact.value = player ? player.contact : "";
+  elements.playerLevel.value = player ? player.level : "Intermediate";
+  elements.playerStatus.value = player ? player.status : "active";
+  elements.playerNotes.value = player ? player.notes : "";
 
-  elements.playerDialog.showModal();
+  openDialog(elements.playerDialog);
   elements.playerName.focus();
 }
 
+function openDialog(dialog) {
+  if (dialog.showModal) {
+    dialog.showModal();
+    return;
+  }
+
+  dialog.setAttribute("open", "");
+}
+
+function closeDialog(dialog) {
+  if (dialog.close) {
+    dialog.close();
+    return;
+  }
+
+  dialog.removeAttribute("open");
+}
+
 function upsertPlayer() {
-  const id = elements.playerId.value || crypto.randomUUID();
+  const id = elements.playerId.value || createId();
   const current = state.players.find((player) => player.id === id);
   const nextPlayer = {
     id,
@@ -650,7 +675,7 @@ function upsertPlayer() {
     level: elements.playerLevel.value,
     status: elements.playerStatus.value,
     notes: elements.playerNotes.value.trim(),
-    response: current?.response ?? "maybe",
+    response: current ? current.response : "maybe",
   };
 
   if (!nextPlayer.name) return;
@@ -687,7 +712,7 @@ function deleteCurrentPlayer() {
     delete week.responses[id];
   }
   saveState();
-  elements.playerDialog.close();
+  closeDialog(elements.playerDialog);
   render();
 }
 
@@ -786,11 +811,22 @@ document.querySelectorAll(".tab-button").forEach((button) => {
 });
 
 elements.playerForm.addEventListener("submit", (event) => {
-  if (event.submitter?.value === "cancel") return;
+  if (event.submitter && event.submitter.value === "cancel") return;
   event.preventDefault();
   upsertPlayer();
-  elements.playerDialog.close();
+  closeDialog(elements.playerDialog);
 });
 
-render();
-loadCloudState();
+try {
+  render();
+  loadCloudState();
+} catch (error) {
+  console.error(error);
+  if (elements.playerBoard) {
+    elements.playerBoard.innerHTML = "";
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.textContent = "The roster could not load. Refresh the page or clear this site's browser data.";
+    elements.playerBoard.append(empty);
+  }
+}
