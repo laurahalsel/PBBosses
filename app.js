@@ -24,7 +24,7 @@ const starterState = {
     {
       id: createId(),
       name: "Maya Chen",
-      contact: "maya@example.com",
+      contact: "(555) 013-0198",
       level: "Advanced",
       status: "active",
       notes: "Prefers doubles. Strong server.",
@@ -33,7 +33,7 @@ const starterState = {
     {
       id: createId(),
       name: "Elena Brooks",
-      contact: "555-0148",
+      contact: "(555) 014-8000",
       level: "Intermediate",
       status: "active",
       notes: "Can arrive early to help set up.",
@@ -42,7 +42,7 @@ const starterState = {
     {
       id: createId(),
       name: "Priya Shah",
-      contact: "priya@example.com",
+      contact: "(555) 016-4421",
       level: "Intermediate",
       status: "active",
       notes: "Often brings a guest player.",
@@ -51,7 +51,7 @@ const starterState = {
     {
       id: createId(),
       name: "Nora Davis",
-      contact: "555-0192",
+      contact: "(555) 019-2000",
       level: "Beginner",
       status: "inactive",
       notes: "Traveling this month.",
@@ -138,6 +138,18 @@ function formatDateLabel(isoDate) {
   }).format(date);
 }
 
+function formatPhoneNumber(value) {
+  const digits = String(value || "").replace(/\D/g, "").slice(0, 10);
+  if (digits.length === 0) return "";
+  if (digits.length < 4) return `(${digits}`;
+  if (digits.length < 7) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+function phoneDigits(value) {
+  return String(value || "").replace(/\D/g, "");
+}
+
 function createId() {
   if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
   return `player-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -194,6 +206,7 @@ function hydrateState(nextState) {
   }
 
   for (const player of nextState.players) {
+    player.contact = formatPhoneNumber(player.contact);
     if (!nextState.weeks[weekDate].responses[player.id]) {
       nextState.weeks[weekDate].responses[player.id] = player.response || "maybe";
     }
@@ -353,8 +366,8 @@ function filteredPlayers() {
       return true;
     })
     .filter((player) => {
-      const haystack = `${player.name} ${player.contact} ${player.level} ${player.notes}`.toLowerCase();
-      return haystack.includes(searchTerm);
+      const haystack = `${player.name} ${player.contact} ${phoneDigits(player.contact)} ${player.level} ${player.notes}`.toLowerCase();
+      return haystack.includes(searchTerm) || phoneDigits(player.contact).includes(phoneDigits(searchTerm));
     })
     .sort((a, b) => {
       const order = { confirmed: 0, maybe: 1, out: 2 };
@@ -434,7 +447,7 @@ function createPlayerCard(player) {
   name.textContent = player.name;
   const contact = document.createElement("div");
   contact.className = "meta";
-  contact.textContent = player.contact || "No contact added";
+  contact.textContent = player.contact || "No phone number added";
   nameBlock.append(name, contact);
   nameWrap.append(avatar, nameBlock);
 
@@ -498,8 +511,8 @@ function renderView() {
 function renderRoster() {
   const players = state.players
     .filter((player) => {
-      const haystack = `${player.name} ${player.contact} ${player.level} ${player.status} ${player.notes}`.toLowerCase();
-      return haystack.includes(searchTerm);
+      const haystack = `${player.name} ${player.contact} ${phoneDigits(player.contact)} ${player.level} ${player.status} ${player.notes}`.toLowerCase();
+      return haystack.includes(searchTerm) || phoneDigits(player.contact).includes(phoneDigits(searchTerm));
     })
     .sort((a, b) => {
       if (a.status !== b.status) return a.status === "active" ? -1 : 1;
@@ -560,7 +573,7 @@ function createRosterRow(player) {
   main.className = "roster-player-main";
   main.append(
     createRosterCell("Name", player.name),
-    createRosterCell("Contact", player.contact || "No contact added"),
+    createRosterCell("Phone", player.contact || "No phone number added"),
     createRosterCell("Level", player.level),
     createRosterCell("Status", player.status === "active" ? "Active" : "Inactive"),
     createRosterCell("This Week", isPlayerInWeek(player) ? "Included" : "Removed"),
@@ -707,7 +720,7 @@ function openPlayerDialog(id) {
   elements.deletePlayerButton.hidden = !player;
 
   elements.playerName.value = player ? player.name : "";
-  elements.playerContact.value = player ? player.contact : "";
+  elements.playerContact.value = player ? formatPhoneNumber(player.contact) : "";
   elements.playerLevel.value = player ? player.level : "Intermediate";
   elements.playerStatus.value = player ? player.status : "active";
   elements.playerNotes.value = player ? player.notes : "";
@@ -737,10 +750,17 @@ function closeDialog(dialog) {
 function upsertPlayer() {
   const id = elements.playerId.value || createId();
   const current = state.players.find((player) => player.id === id);
+  const formattedPhone = formatPhoneNumber(elements.playerContact.value);
+
+  if (formattedPhone && phoneDigits(formattedPhone).length !== 10) {
+    alert("Enter a 10-digit phone number.");
+    return;
+  }
+
   const nextPlayer = {
     id,
     name: elements.playerName.value.trim(),
-    contact: elements.playerContact.value.trim(),
+    contact: formattedPhone,
     level: elements.playerLevel.value,
     status: elements.playerStatus.value,
     notes: elements.playerNotes.value.trim(),
@@ -853,6 +873,10 @@ elements.weekNotes.addEventListener("input", (event) => {
   selectedWeek().notes = event.target.value;
   state.week.notes = event.target.value;
   saveState();
+});
+
+elements.playerContact.addEventListener("input", (event) => {
+  event.target.value = formatPhoneNumber(event.target.value);
 });
 
 elements.newWeekButton.addEventListener("click", startNewWeek);

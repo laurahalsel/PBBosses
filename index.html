@@ -126,8 +126,15 @@
           <input id="playerName" type="text" required />
         </label>
         <label class="field">
-          <span>Contact</span>
-          <input id="playerContact" type="text" placeholder="Phone or email" />
+          <span>Phone Number</span>
+          <input
+            id="playerContact"
+            type="tel"
+            inputmode="tel"
+            autocomplete="tel"
+            maxlength="14"
+            placeholder="(555) 123-4567"
+          />
         </label>
         <div class="field-grid">
           <label class="field">
