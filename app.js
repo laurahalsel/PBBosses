@@ -205,12 +205,14 @@ function hydrateState(nextState) {
       notes: nextState.week.notes,
       responses: {},
       removedIds: [],
+      includedIds: [],
     };
   }
 
   for (const week of Object.values(nextState.weeks)) {
     week.responses = week.responses && typeof week.responses === "object" ? week.responses : {};
     week.removedIds = Array.isArray(week.removedIds) ? week.removedIds : [];
+    week.includedIds = Array.isArray(week.includedIds) ? week.includedIds : [];
     if (!week.location || week.location === "Community center") {
       week.location = DEFAULT_LOCATION;
     }
@@ -353,11 +355,15 @@ function ensureWeek(isoDate) {
       notes: "",
       responses: {},
       removedIds: [],
+      includedIds: [],
     };
   }
 
   state.weeks[isoDate].removedIds = Array.isArray(state.weeks[isoDate].removedIds)
     ? state.weeks[isoDate].removedIds
+    : [];
+  state.weeks[isoDate].includedIds = Array.isArray(state.weeks[isoDate].includedIds)
+    ? state.weeks[isoDate].includedIds
     : [];
 
   for (const player of state.players) {
@@ -367,6 +373,7 @@ function ensureWeek(isoDate) {
     if (
       player.addedWeekDate &&
       player.addedWeekDate !== isoDate &&
+      !state.weeks[isoDate].includedIds.includes(player.id) &&
       !state.weeks[isoDate].removedIds.includes(player.id)
     ) {
       state.weeks[isoDate].removedIds.push(player.id);
@@ -387,6 +394,7 @@ function getPlayerResponse(player, isoDate = state.week.date) {
 
 function isPlayerInWeek(player, isoDate = state.week.date) {
   const week = ensureWeek(isoDate);
+  if (week.includedIds.includes(player.id)) return true;
   return !week.removedIds.includes(player.id);
 }
 
@@ -746,6 +754,7 @@ function updateResponse(id, response) {
 
 function removeFromWeek(id) {
   const week = selectedWeek();
+  week.includedIds = week.includedIds.filter((playerId) => playerId !== id);
   if (!week.removedIds.includes(id)) {
     week.removedIds.push(id);
   }
@@ -761,6 +770,9 @@ function addToWeek(id) {
 function addToWeekDate(id, isoDate) {
   const week = ensureWeek(isoDate);
   week.removedIds = week.removedIds.filter((playerId) => playerId !== id);
+  if (!week.includedIds.includes(id)) {
+    week.includedIds.push(id);
+  }
   if (!week.responses[id]) {
     week.responses[id] = "maybe";
   }
@@ -894,6 +906,7 @@ function upsertPlayer() {
   for (const week of Object.values(state.weeks)) {
     week.responses = week.responses && typeof week.responses === "object" ? week.responses : {};
     week.removedIds = Array.isArray(week.removedIds) ? week.removedIds : [];
+    week.includedIds = Array.isArray(week.includedIds) ? week.includedIds : [];
     if (!week.responses[id]) {
       week.responses[id] = nextPlayer.status === "active" ? "maybe" : "out";
     }
@@ -921,6 +934,9 @@ function deleteCurrentPlayer() {
   for (const week of Object.values(state.weeks)) {
     delete week.responses[id];
     week.removedIds = Array.isArray(week.removedIds) ? week.removedIds.filter((playerId) => playerId !== id) : [];
+    week.includedIds = Array.isArray(week.includedIds)
+      ? week.includedIds.filter((playerId) => playerId !== id)
+      : [];
   }
   saveState();
   closeDialog(elements.playerDialog);
@@ -969,6 +985,7 @@ function startNewWeek() {
   const week = ensureWeek(nextDate);
   week.notes = "";
   week.removedIds = [];
+  week.includedIds = [];
   for (const player of state.players) {
     week.responses[player.id] = player.status === "active" ? "maybe" : "out";
   }
