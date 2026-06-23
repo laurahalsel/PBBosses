@@ -430,17 +430,12 @@ function render() {
   elements.weekNotes.value = week.notes;
 
   const confirmed = state.players.filter(
-    (player) => isPlayerInWeek(player) && player.status === "active" && getPlayerResponse(player) === "confirmed",
+    (player) => isPlayerInWeek(player) && getPlayerResponse(player) === "confirmed",
   ).length;
   const maybe = state.players.filter(
-    (player) => isPlayerInWeek(player) && player.status === "active" && getPlayerResponse(player) === "maybe",
+    (player) => isPlayerInWeek(player) && getPlayerResponse(player) === "maybe",
   ).length;
-  const active = state.players.filter(
-    (player) =>
-      isPlayerInWeek(player) &&
-      player.status === "active" &&
-      ["confirmed", "maybe"].includes(getPlayerResponse(player)),
-  ).length;
+  const active = state.players.filter((player) => player.status === "active").length;
 
   elements.confirmedCount.textContent = confirmed;
   elements.maybeCount.textContent = maybe;
