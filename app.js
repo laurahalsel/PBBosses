@@ -181,11 +181,13 @@ function hydrateState(nextState) {
       location: nextState.week.location,
       notes: nextState.week.notes,
       responses: {},
+      removedIds: [],
     };
   }
 
   for (const week of Object.values(nextState.weeks)) {
     week.responses = week.responses && typeof week.responses === "object" ? week.responses : {};
+    week.removedIds = Array.isArray(week.removedIds) ? week.removedIds : [];
     if (!week.location || week.location === "Community center") {
       week.location = DEFAULT_LOCATION;
     }
@@ -295,8 +297,13 @@ function ensureWeek(isoDate) {
       location: state.week.location || "",
       notes: "",
       responses: {},
+      removedIds: [],
     };
   }
+
+  state.weeks[isoDate].removedIds = Array.isArray(state.weeks[isoDate].removedIds)
+    ? state.weeks[isoDate].removedIds
+    : [];
 
   for (const player of state.players) {
     if (!state.weeks[isoDate].responses[player.id]) {
@@ -316,6 +323,11 @@ function getPlayerResponse(player, isoDate = state.week.date) {
   return week.responses[player.id] || (player.status === "active" ? "maybe" : "out");
 }
 
+function isPlayerInWeek(player, isoDate = state.week.date) {
+  const week = ensureWeek(isoDate);
+  return !week.removedIds.includes(player.id);
+}
+
 function initials(name) {
   return name
     .trim()
@@ -332,6 +344,7 @@ function playerColor(player) {
 
 function filteredPlayers() {
   return state.players
+    .filter((player) => isPlayerInWeek(player))
     .filter((player) => {
       const response = getPlayerResponse(player);
       if (activeFilter === "inactive") return player.status === "inactive";
@@ -361,12 +374,12 @@ function render() {
   elements.weekNotes.value = week.notes;
 
   const confirmed = state.players.filter(
-    (player) => player.status === "active" && getPlayerResponse(player) === "confirmed",
+    (player) => isPlayerInWeek(player) && player.status === "active" && getPlayerResponse(player) === "confirmed",
   ).length;
   const maybe = state.players.filter(
-    (player) => player.status === "active" && getPlayerResponse(player) === "maybe",
+    (player) => isPlayerInWeek(player) && player.status === "active" && getPlayerResponse(player) === "maybe",
   ).length;
-  const active = state.players.filter((player) => player.status === "active").length;
+  const active = state.players.filter((player) => isPlayerInWeek(player) && player.status === "active").length;
 
   elements.confirmedCount.textContent = confirmed;
   elements.maybeCount.textContent = maybe;
@@ -384,7 +397,9 @@ function render() {
     empty.className = "empty-state";
     empty.append(
       document.createTextNode(
-        state.players.length === 0 ? "No players yet. Add your first player." : "No players match this view.",
+        state.players.length === 0
+          ? "No players yet. Add your first player."
+          : "No players scheduled for this week or filter.",
       ),
       createEmptyAction(),
     );
@@ -454,7 +469,16 @@ function createPlayerCard(player) {
   notes.textContent = player.notes || "No notes yet.";
   details.append(tags, notes);
 
-  card.append(top, statusRow, details);
+  const weekActions = document.createElement("div");
+  weekActions.className = "week-actions";
+  const removeButton = document.createElement("button");
+  removeButton.className = "secondary-button";
+  removeButton.type = "button";
+  removeButton.textContent = "Remove from Week";
+  removeButton.addEventListener("click", () => removeFromWeek(player.id));
+  weekActions.append(removeButton);
+
+  card.append(top, statusRow, details, weekActions);
   return card;
 }
 
@@ -539,7 +563,23 @@ function createRosterRow(player) {
     createRosterCell("Contact", player.contact || "No contact added"),
     createRosterCell("Level", player.level),
     createRosterCell("Status", player.status === "active" ? "Active" : "Inactive"),
+    createRosterCell("This Week", isPlayerInWeek(player) ? "Included" : "Removed"),
   );
+
+  const actions = document.createElement("div");
+  actions.className = "roster-actions";
+
+  const weekButton = document.createElement("button");
+  weekButton.className = "secondary-button";
+  weekButton.type = "button";
+  weekButton.textContent = isPlayerInWeek(player) ? "Remove This Week" : "Add This Week";
+  weekButton.addEventListener("click", () => {
+    if (isPlayerInWeek(player)) {
+      removeFromWeek(player.id);
+    } else {
+      addToWeek(player.id);
+    }
+  });
 
   const editButton = document.createElement("button");
   editButton.className = "secondary-button";
@@ -547,7 +587,8 @@ function createRosterRow(player) {
   editButton.textContent = "Edit";
   editButton.addEventListener("click", () => openPlayerDialog(player.id));
 
-  row.append(main, editButton);
+  actions.append(weekButton, editButton);
+  row.append(main, actions);
 
   if (player.notes) {
     const notes = document.createElement("p");
@@ -592,7 +633,16 @@ function renderWeekDashboard() {
 
     const roster = document.createElement("span");
     roster.className = "week-card-roster";
-    roster.append(...state.players.map((player) => createWeekRosterName(player, isoDate)));
+    const weekPlayers = state.players.filter((player) => isPlayerInWeek(player, isoDate));
+
+    if (weekPlayers.length === 0) {
+      const empty = document.createElement("span");
+      empty.className = "week-roster-empty";
+      empty.textContent = "No players";
+      roster.append(empty);
+    } else {
+      roster.append(...weekPlayers.map((player) => createWeekRosterName(player, isoDate)));
+    }
 
     weekButton.append(dateLine, roster);
     elements.weekList.append(weekButton);
@@ -615,6 +665,25 @@ function createTag(text) {
 
 function updateResponse(id, response) {
   selectedWeek().responses[id] = response;
+  saveState();
+  render();
+}
+
+function removeFromWeek(id) {
+  const week = selectedWeek();
+  if (!week.removedIds.includes(id)) {
+    week.removedIds.push(id);
+  }
+  saveState();
+  render();
+}
+
+function addToWeek(id) {
+  const week = selectedWeek();
+  week.removedIds = week.removedIds.filter((playerId) => playerId !== id);
+  if (!week.responses[id]) {
+    week.responses[id] = "maybe";
+  }
   saveState();
   render();
 }
@@ -688,6 +757,7 @@ function upsertPlayer() {
 
   for (const week of Object.values(state.weeks)) {
     week.responses = week.responses && typeof week.responses === "object" ? week.responses : {};
+    week.removedIds = Array.isArray(week.removedIds) ? week.removedIds.filter((playerId) => playerId !== id) : [];
     if (!week.responses[id]) {
       week.responses[id] = nextPlayer.status === "active" ? "maybe" : "out";
     }
@@ -710,6 +780,7 @@ function deleteCurrentPlayer() {
   state.players = state.players.filter((item) => item.id !== id);
   for (const week of Object.values(state.weeks)) {
     delete week.responses[id];
+    week.removedIds = Array.isArray(week.removedIds) ? week.removedIds.filter((playerId) => playerId !== id) : [];
   }
   saveState();
   closeDialog(elements.playerDialog);
@@ -725,17 +796,17 @@ function exportSummary() {
     "",
     "Confirmed:",
     ...state.players
-      .filter((player) => player.status === "active" && getPlayerResponse(player) === "confirmed")
+      .filter((player) => isPlayerInWeek(player) && player.status === "active" && getPlayerResponse(player) === "confirmed")
       .map((player) => `- ${player.name}${player.contact ? ` (${player.contact})` : ""}`),
     "",
     "Maybe:",
     ...state.players
-      .filter((player) => player.status === "active" && getPlayerResponse(player) === "maybe")
+      .filter((player) => isPlayerInWeek(player) && player.status === "active" && getPlayerResponse(player) === "maybe")
       .map((player) => `- ${player.name}${player.contact ? ` (${player.contact})` : ""}`),
     "",
     "Out:",
     ...state.players
-      .filter((player) => getPlayerResponse(player) === "out")
+      .filter((player) => isPlayerInWeek(player) && getPlayerResponse(player) === "out")
       .map((player) => `- ${player.name}`),
   ].filter((line, index, all) => line || all[index - 1] !== "");
 
@@ -756,6 +827,7 @@ function startNewWeek() {
   const nextDate = getUpcomingWednesdayIso(today);
   const week = ensureWeek(nextDate);
   week.notes = "";
+  week.removedIds = [];
   for (const player of state.players) {
     week.responses[player.id] = player.status === "active" ? "maybe" : "out";
   }
