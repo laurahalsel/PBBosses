@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pickleball Boss Ladies</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="dashboard-panel dashboard-strip" aria-labelledby="dashboard-heading">
+        <div class="section-heading">
+          <h2 id="dashboard-heading">Wednesday Dashboard</h2>
+        </div>
+        <div class="week-list" id="weekList"></div>
+      </section>
+
+      <aside class="sidebar" aria-label="Weekly group overview">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">PBL</div>
+          <div>
+            <h1>Pickleball Boss Ladies</h1>
+            <p>East County court roster</p>
+          </div>
+        </div>
+
+        <section class="week-panel" aria-labelledby="week-heading">
+          <div class="section-heading">
+            <h2 id="week-heading">Selected Wednesday</h2>
+            <button class="icon-button" id="newWeekButton" type="button" aria-label="Start a new week" title="Start a new week">
+              <span aria-hidden="true">+</span>
+            </button>
+          </div>
+          <label class="field">
+            <span>Date</span>
+            <input id="weekDate" type="date" />
+          </label>
+          <label class="field">
+            <span>Location</span>
+            <input id="weekLocation" type="text" placeholder="East County Pickleball Courts" />
+          </label>
+          <label class="field">
+            <span>Week Notes</span>
+            <textarea id="weekNotes" rows="5" placeholder="Weather, court number, reminders..."></textarea>
+          </label>
+        </section>
+
+        <section class="summary-panel" aria-label="Weekly summary">
+          <div>
+            <span class="summary-number" id="confirmedCount">0</span>
+            <span class="summary-label">confirmed</span>
+          </div>
+          <div>
+            <span class="summary-number" id="maybeCount">0</span>
+            <span class="summary-label">maybe</span>
+          </div>
+          <div>
+            <span class="summary-number" id="activeCount">0</span>
+            <span class="summary-label">active players</span>
+          </div>
+        </section>
+      </aside>
+
+      <section class="workspace" aria-label="Player organizer">
+        <header class="toolbar">
+          <div>
+            <p class="eyebrow">Group list</p>
+            <h2>Players</h2>
+          </div>
+          <div class="toolbar-actions">
+            <div class="search-wrap">
+              <span aria-hidden="true">⌕</span>
+              <input id="searchInput" type="search" placeholder="Search players" />
+            </div>
+            <button class="secondary-button" id="exportButton" type="button">Export</button>
+            <button class="primary-button" id="addPlayerButton" type="button">Add Player</button>
+          </div>
+        </header>
+        <p class="sync-status" id="syncStatus">Local mode</p>
+
+        <nav class="view-tabs" aria-label="Player views">
+          <button class="tab-button is-active" data-view="weekly" type="button">Weekly Dashboard</button>
+          <button class="tab-button" data-view="roster" type="button">Full Roster</button>
+        </nav>
+
+        <section class="view-panel is-active" id="weeklyView" aria-label="Weekly dashboard">
+          <section class="quick-filters" aria-label="Player filters">
+            <button class="filter-button is-active" data-filter="all" type="button">All</button>
+            <button class="filter-button" data-filter="confirmed" type="button">Confirmed</button>
+            <button class="filter-button" data-filter="maybe" type="button">Maybe</button>
+            <button class="filter-button" data-filter="out" type="button">Out</button>
+            <button class="filter-button" data-filter="inactive" type="button">Inactive</button>
+          </section>
+
+          <section class="board" id="playerBoard" aria-live="polite"></section>
+        </section>
+
+        <section class="view-panel" id="rosterView" aria-label="Full roster">
+          <div class="roster-header">
+            <div>
+              <p class="eyebrow">Full roster</p>
+              <h2>Review Players</h2>
+            </div>
+            <button class="primary-button" id="rosterAddPlayerButton" type="button">Add Player</button>
+          </div>
+          <section class="roster-list" id="rosterList" aria-live="polite"></section>
+        </section>
+      </section>
+    </main>
+
+    <dialog id="playerDialog">
+      <form method="dialog" class="dialog-form" id="playerForm">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">Roster</p>
+            <h2 id="dialogTitle">Add Player</h2>
+          </div>
+          <button class="icon-button" value="cancel" type="submit" aria-label="Close" title="Close">
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+
+        <input id="playerId" type="hidden" />
+        <label class="field">
+          <span>Name</span>
+          <input id="playerName" type="text" required />
+        </label>
+        <label class="field">
+          <span>Contact</span>
+          <input id="playerContact" type="text" placeholder="Phone or email" />
+        </label>
+        <div class="field-grid">
+          <label class="field">
+            <span>Level</span>
+            <select id="playerLevel">
+              <option>Beginner</option>
+              <option>Intermediate</option>
+              <option>Advanced</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Status</span>
+            <select id="playerStatus">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </label>
+        </div>
+        <label class="field">
+          <span>Notes</span>
+          <textarea id="playerNotes" rows="4" placeholder="Position, preferences, reminders..."></textarea>
+        </label>
+
+        <menu class="dialog-actions">
+          <button class="danger-button" id="deletePlayerButton" type="button">Delete</button>
+          <span></span>
+          <button class="secondary-button" value="cancel" type="submit">Cancel</button>
+          <button class="primary-button" id="savePlayerButton" value="default" type="submit">Save</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
